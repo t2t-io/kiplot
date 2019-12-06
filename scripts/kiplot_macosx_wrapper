@@ -40,7 +40,7 @@ function run_kiplot_linux {
 }
 
 function run_kiplot_macosx {
-	local COMMAND="PYTHONPATH=${TOPDIR}/src:${KICAD_PYTHON_PACKAGE_DIRS}:${PYTHON_ENV_DIR}/lib/python2.7/site-packages ${KICAD_PYTHON_EXECUTABLE} ${TOPDIR}/scripts/macosx.py $@"
+	local COMMAND="PYTHONPATH=${TOPDIR}/src:${KICAD_PYTHON_PACKAGE_DIRS}:${PYTHON_ENV_DIR}/lib/python2.7/site-packages ${KICAD_PYTHON_EXECUTABLE} -m kiplot $@"
 	DBG -e "running command:\n\t${COMMAND}"
 	${BASH} -c "${COMMAND}"
 	exit $?

@@ -1,0 +1,52 @@
+#!/bin/bash
+#
+
+function ERR {
+	echo $@
+}
+
+function DBG {
+	[ "true" != "${WRAPPER_VERBOSE}" ] && return 0
+	echo $@
+}
+
+function init_variables {
+	export KICAD_PATH=${KICAD_APP_PATH:-/Applications/KiCad/kicad.app}
+	DBG "assume kicad.app is located at ${KICAD_PATH} ..."
+	export KICAD_PYTHON_EXECUTABLE=$(find ${KICAD_PATH} -not -type d -name 'python' | sort | head -n1)
+	[ "" == "${KICAD_PYTHON_EXECUTABLE}" ] && ERR "missing python executable file in KICAD_APP_PATH (${KICAD_PATH})" && exit 1
+	DBG "found python at kicad.app ($(dirname ${KICAD_PYTHON_EXECUTABLE})) ..."
+	[ "0" == "$(find ${KICAD_PATH} -type d -name 'site-packages' | wc -l)" ] && ERR "missing python site-package in KICAD_APP_PATH (${KICAD_PATH})" && exit 2
+	export KICAD_PYTHON_PACKAGE_DIRS=$(find ${KICAD_PATH} -type d -name 'site-packages' | tr '\n' ':' | sed 's/:$//g')
+
+	export CURRENT=$(pwd)
+	cd $(dirname $0)
+	cd ..
+	export TOPDIR=$(pwd)
+	cd ${CURRENT}
+
+	export PYTHON_ENV_DIR="${TOPDIR}/venv/macosx"
+	if [ ! -d "${PYTHON_ENV_DIR}" ]; then
+		echo "missing python environment: ${PYTHON_ENV_DIR}"
+		virtualenv --python /usr/bin/python2.7 ${PYTHON_ENV_DIR}
+		source ${PYTHON_ENV_DIR}/bin/activate
+		pip install PyYAML
+	fi
+}
+
+function run_kiplot_linux {
+	${BASH} -c "kiplot $@"1
+	exit $?
+}
+
+function run_kiplot_macosx {
+	local COMMAND="PYTHONPATH=${TOPDIR}/src:${KICAD_PYTHON_PACKAGE_DIRS}:${PYTHON_ENV_DIR}/lib/python2.7/site-packages ${KICAD_PYTHON_EXECUTABLE} ${TOPDIR}/scripts/macosx.py $@"
+	DBG -e "running command:\n\t${COMMAND}"
+	${BASH} -c "${COMMAND}"
+	exit $?
+}
+
+
+[ "darwin" == "$(uname -s | tr '[A-Z]' '[a-z]')" ] || run_kiplot_linux $@
+init_variables
+run_kiplot_macosx $@

@@ -326,6 +326,24 @@ class CfgYamlReader(CfgReader):
                 'to': 'mirror_y_axis',
                 'required': lambda opts: True,
             },
+            {
+                'key': 'format',
+                'types': ['position'],
+                'to': 'format',
+                'required': lambda opts: True,
+            },
+            {
+                'key': 'units',
+                'types': ['position'],
+                'to': 'units',
+                'required': lambda opts: True,
+            },
+            {
+                'key': 'separate_files_for_front_and_back',
+                'types': ['position'],
+                'to': 'separate_files_for_front_and_back',
+                'required': lambda opts: True,
+            }
         ]
 
         po = PC.OutputOptions(otype)
@@ -441,7 +459,7 @@ class CfgYamlReader(CfgReader):
             raise YamlError("Output needs a type")
 
         if otype not in ['gerber', 'ps', 'hpgl', 'dxf', 'pdf', 'svg',
-                         'gerb_drill', 'excellon']:
+                         'gerb_drill', 'excellon', 'position']:
             raise YamlError("Unknown output type: {}".format(otype))
 
         try:

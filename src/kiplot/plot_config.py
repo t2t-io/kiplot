@@ -361,6 +361,22 @@ class DrillMapOptions(object):
         self.type = None
 
 
+class PositionOptions(TypeOptions):
+
+    def __init__(self):
+        self.format = None
+        self.units = None
+        self.separate_files_for_front_and_back = None
+
+    def validate(self):
+        errs = []
+        if self.format not in ["ASCII", "CSV"]:
+            errs.append("Format must be either ASCII or CSV")
+        if self.units not in ["millimeters", "inches"]:
+            errs.append("Units must be either millimeters or inches")
+        return errs
+
+
 class OutputOptions(object):
 
     GERBER = 'gerber'
@@ -372,6 +388,7 @@ class OutputOptions(object):
 
     EXCELLON = 'excellon'
     GERB_DRILL = 'gerb_drill'
+    POSITION = 'position'
 
     def __init__(self, otype):
         self.type = otype
@@ -392,6 +409,8 @@ class OutputOptions(object):
             self.type_options = ExcellonOptions()
         elif otype == self.GERB_DRILL:
             self.type_options = GerberDrillOptions()
+        elif otype == self.POSITION:
+            self.type_options = PositionOptions()
         else:
             self.type_options = None
 

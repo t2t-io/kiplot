@@ -2,6 +2,7 @@
 Main Kiplot code
 """
 
+from datetime import datetime
 import logging
 import os
 
@@ -51,6 +52,8 @@ class Plotter(object):
                 self._do_layer_plot(board, pc, op)
             elif self._output_is_drill(op):
                 self._do_drill_plot(board, pc, op)
+            elif self._output_is_position(op):
+                self._do_position_plot(board, pc, op)
             else:
                 raise PlotError("Don't know how to plot type {}"
                                 .format(op.options.type))
@@ -84,6 +87,9 @@ class Plotter(object):
             PCfg.OutputOptions.EXCELLON,
             PCfg.OutputOptions.GERB_DRILL,
         ]
+
+    def _output_is_position(self, output):
+        return output.options.type == PCfg.OutputOptions.POSITION
 
     def _get_layer_plot_format(self, output):
         """
@@ -221,6 +227,160 @@ class Plotter(object):
 
             drill_writer.GenDrillReportFile(drill_report_file)
 
+    def _do_position_plot_ascii(self, board, plot_ctrl, output, columns, modulesStr, maxSizes):
+        to = output.options.type_options
+        outdir = plot_ctrl.GetPlotOptions().GetOutputDirectory()
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        name = os.path.splitext(os.path.basename(board.GetFileName()))[0]
+
+        topf = None
+        botf = None
+        bothf = None
+        if to.separate_files_for_front_and_back:
+            topf = open(os.path.join(outdir, "{}-top.pos".format(name)), 'w')
+            botf = open(os.path.join(outdir, "{}-bottom.pos".format(name)),
+                        'w')
+        else:
+            bothf = open(os.path.join(outdir, "{}-both.pos").format(name), 'w')
+
+        files = [f for f in [topf, botf, bothf] if f is not None]
+        for f in files:
+            f.write('### Module positions - created on {} ###\n'.format(
+                datetime.now().strftime("%a %d %b %Y %I:%M:%S %p %Z")
+            ))
+            f.write('### Printed by KiPlot\n')
+            unit = {'millimeters': 'mm',
+                    'inches': 'in'}[to.units]
+            f.write('## Unit: {}, Angle = deg\n'.format(unit))
+
+        if topf is not None:
+            topf.write('## Side: top\n')
+        if botf is not None:
+            botf.write('## Side: bottom\n')
+        if bothf is not None:
+            bothf.write('## Side: both\n')
+
+        for f in files:
+            f.write('# ')
+            for idx, col in enumerate(columns):
+                if idx > 0:
+                    f.write("   ")
+                f.write("{0: <{width}}".format(col, width=maxSizes[idx]))
+            f.write('\n')
+
+        # Account for the "# " at the start of the comment column
+        maxSizes[0] = maxSizes[0] + 2
+
+        for m in modulesStr:
+            fle = bothf
+            if fle is None:
+                if m[-1] == "top":
+                    fle = topf
+                else:
+                    fle = botf
+            for idx, col in enumerate(m):
+                if idx > 0:
+                    fle.write("   ")
+                fle.write("{0: <{width}}".format(col, width=maxSizes[idx]))
+            fle.write("\n")
+
+        for f in files:
+            f.write("## End\n")
+
+        if topf is not None:
+            topf.close()
+        if botf is not None:
+            botf.close()
+        if bothf is not None:
+            bothf.close()
+
+    def _do_position_plot_csv(self, board, plot_ctrl, output, columns, modulesStr):
+        to = output.options.type_options
+        outdir = plot_ctrl.GetPlotOptions().GetOutputDirectory()
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        name = os.path.splitext(os.path.basename(board.GetFileName()))[0]
+
+        topf = None
+        botf = None
+        bothf = None
+        if to.separate_files_for_front_and_back:
+            topf = open(os.path.join(outdir, "{}-top-pos.csv".format(name)),
+                        'w')
+            botf = open(os.path.join(outdir, "{}-bottom-pos.csv".format(name)),
+                        'w')
+        else:
+            bothf = open(os.path.join(outdir, "{}-both-pos.csv").format(name),
+                         'w')
+
+        files = [f for f in [topf, botf, bothf] if f is not None]
+
+        for f in files:
+            f.write(",".join(columns))
+            f.write("\n")
+
+        for m in modulesStr:
+            fle = bothf
+            if fle is None:
+                if m[-1] == "top":
+                    fle = topf
+                else:
+                    fle = botf
+            fle.write(",".join('"{}"'.format(e) for e in m))
+            fle.write("\n")
+
+        if topf is not None:
+            topf.close()
+        if botf is not None:
+            botf.close()
+        if bothf is not None:
+            bothf.close()
+
+    def _do_position_plot(self, board, plot_ctrl, output):
+        to = output.options.type_options
+
+        columns = ["ref", "val", "package", "posx", "posy", "rot", "side"]
+        colcount = len(columns)
+
+        conv = 1.0
+        if to.units == 'millimeters':
+            conv = 1.0 / pcbnew.IU_PER_MM
+        elif to.units == 'inches':
+            conv = 0.001 / pcbnew.IU_PER_MILS
+        else:
+            raise PlotError('Invalid units: {}'.format(to.units))
+
+        # Format all strings
+        modules = []
+        for m in board.GetModules():
+            center = m.GetCenter()
+            # See PLACE_FILE_EXPORTER::GenPositionData() in
+            # export_footprints_placefile.cpp for C++ version of this.
+            modules.append([
+                "{}".format(m.GetReference()),
+                "{}".format(m.GetValue()),
+                "{}".format(m.GetFPID().GetLibItemName()),
+                "{:.4f}".format(center.x * conv),
+                "{:.4f}".format(center.y * conv),
+                "{:.4f}".format(m.GetOrientationDegrees()),
+                "{}".format("bottom" if m.IsFlipped() else "top")
+            ])
+
+        # Find max width for all columns
+        maxlengths = [0] * colcount
+        for row in range(len(modules)):
+            for col in range(colcount):
+                maxlengths[col] = max(maxlengths[col], len(modules[row][col]))
+
+        if to.format.lower() == 'ascii':
+            self._do_position_plot_ascii(board, plot_ctrl, output, columns, modules,
+                                         maxlengths)
+        elif to.format.lower() == 'csv':
+            self._do_position_plot_csv(board, plot_ctrl, output, columns, modules)
+        else:
+            raise PlotError("Format is invalid: {}".format(to.format))
+
     def _configure_gerber_opts(self, po, output):
 
         # true if gerber
@@ -270,6 +430,10 @@ class Plotter(object):
 
         assert(output.options.type == PCfg.OutputOptions.SVG)
         # pdf_opts = output.options.type_options
+
+    def _configure_position_opts(self, po, output):
+
+        assert(output.options.type == PCfg.OutputOptions.POSITION)
 
     def _configure_output_dir(self, plot_ctrl, output):
 
@@ -324,6 +488,8 @@ class Plotter(object):
             self._configure_pdf_opts(po, output)
         elif output.options.type == PCfg.OutputOptions.HPGL:
             self._configure_hpgl_opts(po, output)
+        elif output.options.type == PCfg.OutputOptions.POSITION:
+            self._configure_position_opts(po, output)
 
         po.SetDrillMarksType(opts.drill_marks)
 

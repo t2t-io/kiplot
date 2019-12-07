@@ -82,7 +82,7 @@ class CfgYamlReader(CfgReader):
 
         return opts
 
-    def _perform_config_mapping(self, otype, cfg_options, mapping_list, 
+    def _perform_config_mapping(self, otype, cfg_options, mapping_list,
                                 target):
         """
         Map a config dict onto a target object given a mapping list
@@ -345,6 +345,36 @@ class CfgYamlReader(CfgReader):
         D = {
             'F.Cu': pcbnew.F_Cu,
             'B.Cu': pcbnew.B_Cu,
+            'In1.Cu': pcbnew.In1_Cu,
+            'In2.Cu': pcbnew.In2_Cu,
+            'In3.Cu': pcbnew.In3_Cu,
+            'In4.Cu': pcbnew.In4_Cu,
+            'In5.Cu': pcbnew.In5_Cu,
+            'In6.Cu': pcbnew.In6_Cu,
+            'In7.Cu': pcbnew.In7_Cu,
+            'In8.Cu': pcbnew.In8_Cu,
+            'In9.Cu': pcbnew.In9_Cu,
+            'In10.Cu': pcbnew.In10_Cu,
+            'In11.Cu': pcbnew.In11_Cu,
+            'In12.Cu': pcbnew.In12_Cu,
+            'In13.Cu': pcbnew.In13_Cu,
+            'In14.Cu': pcbnew.In14_Cu,
+            'In15.Cu': pcbnew.In15_Cu,
+            'In16.Cu': pcbnew.In16_Cu,
+            'In17.Cu': pcbnew.In17_Cu,
+            'In18.Cu': pcbnew.In18_Cu,
+            'In19.Cu': pcbnew.In19_Cu,
+            'In20.Cu': pcbnew.In20_Cu,
+            'In21.Cu': pcbnew.In21_Cu,
+            'In22.Cu': pcbnew.In22_Cu,
+            'In23.Cu': pcbnew.In23_Cu,
+            'In24.Cu': pcbnew.In24_Cu,
+            'In25.Cu': pcbnew.In25_Cu,
+            'In26.Cu': pcbnew.In26_Cu,
+            'In27.Cu': pcbnew.In27_Cu,
+            'In28.Cu': pcbnew.In28_Cu,
+            'In29.Cu': pcbnew.In29_Cu,
+            'In30.Cu': pcbnew.In30_Cu,
             'F.Adhes': pcbnew.F_Adhes,
             'B.Adhes': pcbnew.B_Adhes,
             'F.Paste': pcbnew.F_Paste,

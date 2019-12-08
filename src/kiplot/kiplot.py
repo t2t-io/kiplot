@@ -242,7 +242,7 @@ class Plotter(object):
             botf = open(os.path.join(outdir, "{}-bottom.pos".format(name)),
                         'w')
         else:
-            bothf = open(os.path.join(outdir, "{}-both.pos").format(name), 'w')
+            bothf = open(os.path.join(outdir, "{}-all.pos").format(name), 'w')
 
         files = [f for f in [topf, botf, bothf] if f is not None]
         for f in files:
@@ -311,7 +311,7 @@ class Plotter(object):
             botf = open(os.path.join(outdir, "{}-bottom-pos.csv".format(name)),
                         'w')
         else:
-            bothf = open(os.path.join(outdir, "{}-both-pos.csv").format(name),
+            bothf = open(os.path.join(outdir, "{}-all-pos.csv").format(name),
                          'w')
 
         files = [f for f in [topf, botf, bothf] if f is not None]
@@ -320,6 +320,73 @@ class Plotter(object):
             f.write(",".join(columns))
             f.write("\n")
 
+        ##
+        # KiCad's module list read by pcbnew (board.GetModules()) is disordered, like this:
+        #
+        #       ['D6', 'ESDA6V8AV6', 'ESDA6V8AV6', '138.8695', '106.4949', '90.0000', 'top']
+        #       ['U16', 'SX-59HLS', 'SX-59HLS', '65.0467', '100.2513', '270.0000', 'bottom']
+        #       ['U13', 'TSC2007IPWR', 'TSSOP-16_4.4x5mm_P0.65mm', '145.1255', '98.3897', '0.0000', 'top']
+        #       ['U20', 'TSC2017', 'Texas_DSBGA-12_1.36x1.86mm_Layout3x4_P0.5mm', '145.1966', '98.3894', '180.0000', 'top']
+        #       ['C70', '0.1uF', 'C_0402_1005Metric', '66.6012', '113.0300', '270.0000', 'bottom']
+        #       ['C69', '10uF/25V', 'C_0805_2012Metric', '68.3284', '113.5380', '270.0000', 'bottom']
+        #       ['C68', '10uF/25V', 'C_0805_2012Metric', '90.6855', '101.7956', '270.0000', 'bottom']
+        #
+        # But, the exported position file (no matter it's CSV or ASCII), they are sorted
+        # by these fields:
+        #   - `side` (bottom first, then top)
+        #   - `ref` (1st digit treats as prefix, and rest digits are treated as integer to sort)
+        #
+        # Then, it looks like:
+        #
+        #       ['BT1', 'BR1632', 'SMTM1632', '205.2955', '124.7775', '270.0000', 'bottom']
+        #       ['C68', '10uF/25V', 'C_0805_2012Metric', '90.6855', '101.7956', '270.0000', 'bottom']
+        #       ['C69', '10uF/25V', 'C_0805_2012Metric', '68.3284', '113.5380', '270.0000', 'bottom']
+        #       ['C70', '0.1uF', 'C_0402_1005Metric', '66.6012', '113.0300', '270.0000', 'bottom']
+        #       ['D7', 'LED_ARGB', 'SM1210RGB', '54.5975', '113.3478', '0.0000', 'bottom']
+        #       ['J10', 'Conn_02x20_Odd_Even', 'FH12-40S-0.5SH_1x40-1MP_P0.50mm_Horizontal', '148.9680', '111.1245', '180.0000', 'bottom']
+        #       ['U16', 'SX-59HLS', 'SX-59HLS', '65.0467', '100.2513', '270.0000', 'bottom']
+        #       ['C1', '0.1uF/16V', 'C_0402_1005Metric', '165.1733', '84.9957', '270.0000', 'top']
+        #       ['C2', '0.1uF/16V', 'C_0402_1005Metric', '166.3573', '84.9884', '270.0000', 'top']
+        #       ['C3', '0.1uF/film/2%', 'ECHU', '208.9404', '93.8276', '90.0000', 'top']
+        #       ['C4', '2.2uF', 'C_0402_1005Metric', '198.2700', '94.9960', '180.0000', 'top']
+        #       ['C5', '0.1uF/16V', 'C_0402_1005Metric', '160.2457', '81.3381', '180.0000', 'top']
+        #       ...
+        #       ['C9', '0.1uF', 'C_0402_1005Metric', '176.3017', '124.0355', '90.0000', 'top']
+        #       ['C10', 'NI/0.1uF', 'C_0402_1005Metric', '156.0420', '82.9637', '0.0000', 'top']
+        #       ['C11', '0.1uF', 'C_0402_1005Metric', '160.2457', '87.4341', '270.0000', 'top']
+        #
+        # Therefore, the key for list sorting is composed of `side`, `prefix`, and `id`.
+        #
+        paddings = '000000'
+        def msKey(m):
+            side = m[-1]
+            ref = m[0]
+            prefix = ref[0]
+            idx = ref[1:]
+            pad = len(paddings) - len(idx)
+            idx = "%s%s" % (paddings[0:pad], idx)
+            return "%s-%s-%s" % (side, prefix, idx)
+        modulesStr.sort(key=msKey)
+
+        ##
+        # KiCad generates CSV row like this, that is not standard CSV format
+        #
+        #   "U1","ADS1232IPWR","TSSOP-24_4.4x7.8mm_P0.65mm",152.946000,57.925000,180.000000,top
+        #
+        # But KiPlot generates CSV row in standard way (double-quote):
+        #
+        #   "U1","ADS1232IPWR","TSSOP-24_4.4x7.8mm_P0.65mm","202.9460","92.0750","180.0000","top"
+        #
+        # To be backward compatible with Kicad, we needs a special transform for these field values.
+        #
+        def formatCompatibleCsv(values):
+            # Fields in `m` (values):
+            #   `ref, val, package, posx, posy, rot, side`
+            #
+            formats = ['"{}"','"{}"','"{}"','{}','{}','{}','{}']
+            xs = [ formats[idx].format(v) for idx, v in enumerate(values) ]
+            return ",".join(xs)
+
         for m in modulesStr:
             fle = bothf
             if fle is None:
@@ -327,7 +394,7 @@ class Plotter(object):
                     fle = topf
                 else:
                     fle = botf
-            fle.write(",".join('"{}"'.format(e) for e in m))
+            fle.write(formatCompatibleCsv(m))
             fle.write("\n")
 
         if topf is not None:

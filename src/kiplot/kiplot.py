@@ -356,7 +356,6 @@ class Plotter(object):
         # To be compatible with position file exported by Kicad, then add 2 more spaces again.
         maxSizes[0] = maxSizes[0] + 2
         # maxSizes[3] = maxSizes[3] - 1
-        maxSizes[5] = maxSizes[5] + 1
 
         for m in modulesStr:
             fle = bothf
@@ -470,6 +469,7 @@ class Plotter(object):
             x = m.GetPosition().x
             y = m.GetPosition().y
             x = x if to.original_coordinate else x - aux_origin.x
+            x = -x if (not is_csv) and m.IsFlipped() else x         # the x-axis of those modules at bottom side in the position file exported byKiCad is `negative`!! (x-asis of modules at top-side keep the same).
             y = y if to.original_coordinate else aux_origin.y - y
             x = conv(x)
             y = conv(y)

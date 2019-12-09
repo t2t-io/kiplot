@@ -438,6 +438,9 @@ class Plotter(object):
         columns = ["Ref", "Val", "Package", "PosX", "PosY", "Rot", "Side"]
         colcount = len(columns)
 
+        is_csv = to.format.lower() == 'csv'
+        pos_fmt = "{:.6f}" if is_csv else "{:.4f}"
+        rot_fmt = "{:.6f}" if is_csv else "{:.4f}"
         conv = pcbnew.ToMM
         if to.units == 'millimeters':
             conv = pcbnew.ToMM
@@ -454,6 +457,7 @@ class Plotter(object):
             if not (to.include_smd_not_surface_mounted):
                 if not (m.GetAttributes() == pcbnew.MOD_CMS):
                     continue
+
             #
             # Inspired by https://gist.github.com/Salamandar/7162bcb9f0eeb31028aaa052a779a025#file-kicad_generate_gerber-py-L146-L147
             #
@@ -469,15 +473,15 @@ class Plotter(object):
             y = y if to.original_coordinate else aux_origin.y - y
             x = conv(x)
             y = conv(y)
-            fmt = "{:.6f}" if to.format.lower() == 'csv' else "{:.4f}"
-            x = fmt.format(x)
-            y = fmt.format(y)
-            rotation = m.GetOrientationDegrees()
-            rotation = "{:.6f}".format(rotation) if to.format.lower() == 'csv' else "{:.4f}".format(rotation)
+            x = pos_fmt.format(x)
+            y = pos_fmt.format(y)
+            rotation = rot_fmt.format(m.GetOrientationDegrees())
+            val = m.GetValue()
+            val = val if is_csv else '_'.join(val.split(' '))
 
             modules.append([
                 "{}".format(m.GetReference()),
-                "{}".format(m.GetValue()),
+                val,
                 "{}".format(m.GetFPID().GetLibItemName()),
                 x,
                 y,

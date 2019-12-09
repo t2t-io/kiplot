@@ -339,6 +339,18 @@ class CfgYamlReader(CfgReader):
                 'required': lambda opts: True,
             },
             {
+                'key': 'original_coordinate',
+                'types': ['position'],
+                'to': 'original_coordinate',
+                'required': lambda opts: False,
+            },
+            {
+                'key': 'include_smd_not_surface_mounted',
+                'types': ['position'],
+                'to': 'include_smd_not_surface_mounted',
+                'required': lambda opts: False,
+            },
+            {
                 'key': 'separate_files_for_front_and_back',
                 'types': ['position'],
                 'to': 'separate_files_for_front_and_back',

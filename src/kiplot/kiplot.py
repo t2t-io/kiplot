@@ -407,30 +407,46 @@ class Plotter(object):
     def _do_position_plot(self, board, plot_ctrl, output):
         to = output.options.type_options
 
-        columns = ["ref", "val", "package", "posx", "posy", "rot", "side"]
+        columns = ["Ref", "Val", "Package", "PosX", "PosY", "Rot", "Side"]
         colcount = len(columns)
 
-        conv = 1.0
+        conv = pcbnew.ToMM
         if to.units == 'millimeters':
-            conv = 1.0 / pcbnew.IU_PER_MM
+            conv = pcbnew.ToMM
         elif to.units == 'inches':
-            conv = 0.001 / pcbnew.IU_PER_MILS
+            conv = pcbnew.ToMils
         else:
             raise PlotError('Invalid units: {}'.format(to.units))
+
+        aux_origin = board.GetAuxOrigin()
 
         # Format all strings
         modules = []
         for m in board.GetModules():
-            center = m.GetCenter()
-            # See PLACE_FILE_EXPORTER::GenPositionData() in
-            # export_footprints_placefile.cpp for C++ version of this.
+            if not (to.include_smd_not_surface_mounted):
+                if not (m.GetAttributes() == pcbnew.MOD_CMS):
+                    continue
+            #
+            # Inspired by https://gist.github.com/Salamandar/7162bcb9f0eeb31028aaa052a779a025#file-kicad_generate_gerber-py-L146-L147
+            #
+            # Also learned from https://forum.kicad.info/t/trouble-with-pos-file/17426/5
+            #   >
+            #   > Just a reminder: Yes kicad uses a left handed coordinate system (positive y axis points downwards)
+            #   > But this is mapped correctly on export to the pos file that uses a right handed system.
+            #   >
+            #
+            x = m.GetPosition().x
+            y = m.GetPosition().y
+            x = x if to.original_coordinate else x - aux_origin.x
+            y = y if to.original_coordinate else aux_origin.y - y
+
             modules.append([
                 "{}".format(m.GetReference()),
                 "{}".format(m.GetValue()),
                 "{}".format(m.GetFPID().GetLibItemName()),
-                "{:.4f}".format(center.x * conv),
-                "{:.4f}".format(center.y * conv),
-                "{:.4f}".format(m.GetOrientationDegrees()),
+                "{:.6f}".format(conv(x)),
+                "{:.6f}".format(conv(y)),
+                "{:.6f}".format(m.GetOrientationDegrees()),
                 "{}".format("bottom" if m.IsFlipped() else "top")
             ])
 

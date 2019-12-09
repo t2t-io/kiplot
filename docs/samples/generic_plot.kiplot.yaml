@@ -203,3 +203,16 @@ outputs:
         suffix: F_Cu
       - layer: B.SilkS
         suffix: B_Silks
+
+  - name: 'position'
+    comment: "Pick and place file"
+    type: position
+    dir: positiondir
+    options:
+      format: CSV                   # CSV or ASCII format
+      units: millimeters            # millimeters or inches
+      original_coordinate: false    # `true` to output the position points with original coordinate system (no transform)
+                                    # `false` to output position file compatible with Kicad, inspired by https://gist.github.com/Salamandar/7162bcb9f0eeb31028aaa052a779a025#file-kicad_generate_gerber-py-L146-L147
+      include_smd_not_surface_mounted: false   # the option `Include footprints with SMD pads even if not marked Surface Mount` when exporting position file in Kicad
+      separate_files_for_front_and_back: false
+
